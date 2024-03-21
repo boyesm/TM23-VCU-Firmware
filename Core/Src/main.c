@@ -138,7 +138,6 @@ uint32_t TxMailbox;
 
 char msg[256];
 char msg1[256];
-uint32_t current_time, time_diff, prev_time, main_loop_count;
 
 //FSM Definitions
 STATEVAR current_State = STANDBY_STATE;
@@ -205,7 +204,7 @@ static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
 } //end APPS_Mapping()
 
 
-bool Signal_Plausibility_Check(){
+static bool Signal_Plausibility_Check(){
 	// if the difference between signals is greater than 10% for more than 100ms, return false, otherwise return true
 	static int start_time = 0;
 	static int current_time = 0;
@@ -235,7 +234,7 @@ static bool Brake_Pedal_Plausibility_Check(){
 }
 
 
-bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
+static bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
 	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return false;
 	return true;
 }
@@ -444,12 +443,6 @@ int main(void) {
     char msg[256];
     //	uint32_t AC_Current_Command;
     //	uint32_t ERPM_command;
-
-    //initialize counters
-    prev_time = 0;
-    current_time = 0;
-    time_diff = 0;
-    main_loop_count = 0;
 
     /* USER CODE END 2 */
 
