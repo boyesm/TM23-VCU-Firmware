@@ -184,13 +184,6 @@ static void monitor_Signals(void) {
 static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
     uint32_t apps_PP[]) {
 
-		/* TODO: call error checking here
-		 * APPS_outofrange()
-		 * Signal_Plausibility_Check()
-		 *
-		 * if these fail, drive enable goes to false
-		 */
-
     apps_PP[1] = 0.08849557 * ( * appsVal_1) - 37.168141592;
 
     if (apps_PP[1] < 0) {
@@ -246,7 +239,6 @@ bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
 	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return false;
 	return true;
 }
-
 
 
 static inline void enable_motor_movement(){
@@ -351,7 +343,6 @@ static void error_State(void) {
 
     // Turn Drive Enable OFF
 
-    //PIN_RESET GPIO method (preferred method as it clearly sets the GPIO PIN state)
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin,
         GPIO_PIN_RESET);
 
@@ -497,32 +488,6 @@ int main(void) {
             error_State();
 
         } //end switch case
-
-        time_diff = current_time - prev_time; //calculate time difference
-
-        if (time_diff >= LOOP_TIME_INTERVAL) {
-
-            // if 100ms have elapsed since last time this condition became true,
-            // then execute your program functions
-
-            /* execute your program functions*/
-            HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // This is the LED on the Nucleo?
-
-            //			APPS_Mapping(&appsVal[0], &appsVal[1], apps_Pedal_Position);
-            //
-            //			sprintf(msg, "APPS_1 = %lu \t APPS_2 = %lu \t PP1 = %lu \t\r\n",
-            //					appsVal[0], appsVal[1], apps_Pedal_Position[0]);
-            //			HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg),
-            //			HAL_MAX_DELAY);
-
-            prev_time = current_time; // update previous time
-
-        } else {
-            current_time = HAL_GetTick();
-        }
-        main_loop_count++;
-
-        // TODO: where to update the output DAC signals to inverters?
 
     } //end infinite while loop
 
