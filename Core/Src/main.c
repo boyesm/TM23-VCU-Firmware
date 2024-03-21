@@ -161,6 +161,7 @@ uint8_t errorCode = ERR_NONE;
 //	} //end if
 //}
 
+//// Util Functions
 static void monitor_Signals(void) {
 
     //	if ((appsVal[0] < APPS_0_MIN) || (appsVal[0] > APPS_0_MAX)) {
@@ -179,50 +180,16 @@ static void monitor_Signals(void) {
 
 } //end monitor_Signals()
 
-static void Ready_to_Drive(void) {
-
-    if (last_State != STANDBY_STATE) {
-        last_State = STANDBY_STATE;
-    }
-    //checking if brakes are pressed, start button is pressed and HV Present at the same time
-    if ((bpsVal[0] >= bpsThreshold) &&
-        (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port,
-            Start_Button_Pin))) {
-
-        //			if ((bpsVal[0] >= bpsThreshold)
-        //					&& (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port,
-        //					Start_Button_Pin))
-        //					&& (!HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin)))
-
-        //sound buzzer for minimum of 1 second and maximum of 3 seconds using timer
-
-        //Method 1
-        HAL_GPIO_TogglePin(Ready_to_Drive_Sound_GPIO_Port,
-            Ready_to_Drive_Sound_Pin); // TODO: This should be changed to HAL_GPIO_TURN_ON
-        HAL_Delay(2000); //sound buzzer for 2 seconds
-        HAL_GPIO_TogglePin(Ready_to_Drive_Sound_GPIO_Port,
-            Ready_to_Drive_Sound_Pin); // TODO: This should be changed to HAL_GPIO_TURN_OFF
-
-        //Method 2
-        //HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port,
-        //Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
-        //HAL_Delay(2000); //sound buzzer for 2 seconds
-        //HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port,
-        //Ready_to_Drive_Sound_Pin, GPIO_PIN_RESET);
-
-        sprintf(msg, "Ready to Drive Enabled...\n");
-        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
-            HAL_MAX_DELAY);
-
-        current_State = RUNNING_STATE;
-
-    } //end if
-
-} //end Ready_to_Drive()
-
 // TODO: Rename APPS_Mapping -> APPSMapEncoderValueToPositionPercentage
 static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
     uint32_t apps_PP[]) {
+
+		/* TODO: call error checking here
+		 * APPS_outofrange()
+		 * Signal_Plausibility_Check()
+		 *
+		 * if these fail, drive enable goes to false
+		 */
 
     apps_PP[1] = 0.08849557 * ( * appsVal_1) - 37.168141592;
 
@@ -244,19 +211,62 @@ static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
 
 } //end APPS_Mapping()
 
+
+Signal_Plausibility_Check();
+
+Brake_Pedal_Plausibility_Check();
+
+bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
+	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return false;
+	return true;
+}
+
+
+
+static inline void enable_motor_movement(){
+	HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_SET);
+}
+
+static inline void disable_motor_movement(){
+	HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
+}
+
+
+
+//// State Functions
+// TODO: This should ideally be called standby_State()
+static void Ready_to_Drive(void) {
+
+    if (last_State != STANDBY_STATE) {
+        last_State = STANDBY_STATE;
+    }
+    //checking if brakes are pressed, start button is pressed and (not implemented: HV Present) at the same time
+    if ((bpsVal[0] >= bpsThreshold) &&
+        (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port,
+            Start_Button_Pin))) {
+
+        //sound buzzer for minimum of 1 second and maximum of 3 seconds using timer
+        HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
+        HAL_Delay(2000); //sound buzzer for 2 seconds
+        HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_RESET);
+
+        sprintf(msg, "Ready to Drive Enabled...\n");
+        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
+            HAL_MAX_DELAY);
+
+        // change the current state to RUNNING_STATE
+        current_State = RUNNING_STATE;
+
+    } //end if
+
+} //end Ready_to_Drive()
+
 static void running_State(void) {
 
     if (last_State != RUNNING_STATE) {
         last_State = RUNNING_STATE;
 
-        // Turn Drive Enable ON
-
-        //Toggle GPIO method
-        HAL_GPIO_TogglePin(Drive_Enable_Output_GPIO_Port,
-            Drive_Enable_Output_Pin);
-
-        //PIN_SET GPIO method (preferred method as it clearly sets the GPIO PIN state)
-        // HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_SET);
+        enable_motor_movement();
 
         sprintf(msg, "Running State...\n");
         HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
@@ -277,14 +287,7 @@ static void BSPD_Trip_State(void) {
 
         last_State = BSPD_TRIP_STATE;
 
-        // Turn Drive Enable OFF
-
-        //Toggle GPIO method
-        HAL_GPIO_TogglePin(Drive_Enable_Output_GPIO_Port,
-            Drive_Enable_Output_Pin);
-
-        //PIN_RESET GPIO method (preferred method as it clearly sets the GPIO PIN state)
-        //		HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
+        disable_motor_movement();
 
         sprintf(msg, "BSPD Trip State...\n");
         HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
@@ -293,6 +296,7 @@ static void BSPD_Trip_State(void) {
 
     // Send CAN message to notify in BSPD trip state
 
+    // Stay in BSPD_Trip_State until accel pedal is less than 5%. brake pedal is don't care.
     if ((apps_Pedal_Position[0] < 5) && bpsVal[0] < bpsThreshold) {
         current_State = RUNNING_STATE;
     } //end if
@@ -431,7 +435,7 @@ int main(void) {
         switch (current_State) {
 
         case STANDBY_STATE:
-            Ready_to_Drive();
+            Ready_to_Drive(); // TODO: This should ideally be called standby_State()
             break;
 
         case RUNNING_STATE:
@@ -475,6 +479,8 @@ int main(void) {
             current_time = HAL_GetTick();
         }
         main_loop_count++;
+
+        // TODO: where to update the output DAC signals to inverters?
 
     } //end infinite while loop
 
