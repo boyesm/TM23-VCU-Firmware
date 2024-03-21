@@ -212,9 +212,35 @@ static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
 } //end APPS_Mapping()
 
 
-Signal_Plausibility_Check();
+bool Signal_Plausibility_Check(){
+	// if the difference between signals is greater than 10% for more than 100ms, return false, otherwise return true
+	static int start_time = 0;
+	static int current_time = 0;
 
-Brake_Pedal_Plausibility_Check();
+	if (abs(apps_Pedal_Position[0] - apps_Pedal_Position[1]) > 10){
+
+		if (start_time == 0) {start_time = HAL_GetTick();}
+
+		current_time = HAL_GetTick();
+
+		int time_diff = current_time - start_time;
+
+		if (time_diff > LOOP_TIME_INTERVAL){
+			return false;
+		}
+
+	} else {
+		start_time = 0;
+	}
+
+	return true;
+}
+
+static bool Brake_Pedal_Plausibility_Check(){
+	// TODO: Add timer to this to prevent car from entering this mode on small sensor midreading.
+	return (apps_Pedal_Position[0] > 25) && (bpsVal[0] > bpsThreshold);
+}
+
 
 bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
 	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return false;
@@ -273,11 +299,27 @@ static void running_State(void) {
             HAL_MAX_DELAY);
     } //end if
 
+    // check for errors here.
+
+    if (APPS_Out_Of_Range(& appsVal[0], & appsVal[1])){
+    	current_State = ERROR_STATE;
+    	return;
+    }
+
     APPS_Mapping( & appsVal[0], & appsVal[1], apps_Pedal_Position);
 
-    if ((apps_Pedal_Position[0] > 25) && (bpsVal[0] > bpsThreshold)) {
+    if(Signal_Plausibility_Check()){
+    	current_State = ERROR_STATE;
+    	return;
+    }
+
+    if (Brake_Pedal_Plausibility_Check()) {
         current_State = BSPD_TRIP_STATE;
+        return;
     } //end if
+
+
+    // TODO: send pedal percentage to DAC here and output to inverters.
 
 } //end running()
 
