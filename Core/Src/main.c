@@ -41,6 +41,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 //#define APPS_BUF_LEN 4096
+#define BRAKE_SIGNAL_BUFFER 50 // this value is used in APPS_Brake_Pedal_Plausibility_Test() to ensure that function doesn't become true in error due to signal noise
+
+// TODO: These values must be calibrated when the VCU is integrated with the sensors.
 const uint32_t bpsThreshold = 2000; //need to set to store the signal value which corresponds to brakes being pressed
 const uint32_t bps_MIN = 400; //Below range ADC value for BPS
 const uint32_t bps_MAX = 3900; //Above range ADC value for BPS
@@ -52,6 +55,7 @@ const uint32_t APPS_1_MAX = 3900; //Above range ADC value for APPS_1
 //#define LOOP_TIME_INTERVAL  0.001 //loop time in counts x milliseconds, 0.001 x 0.001 == 0.001s -> 10000Hz
 #define LOOP_TIME_INTERVAL 100 //loop time in counts x milliseconds, 100 x 0.001 == 0.1s -> 10Hz
 #define SQRT_2 1.4142
+#define DEBUG
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -81,7 +85,7 @@ struct appsRawADCInputs {
 };
 
 uint32_t apps_Pedal_Position[2]; //to store APPS Pedal Position Values (in %)
-
+// TODO: average these two values? (or some other function) and create a single value that represents the current pedal position
 struct appsPedalDepressionPercentage {
 
 };
@@ -136,6 +140,8 @@ uint8_t RxData[8];
 
 uint32_t TxMailbox;
 
+uint32_t value_to_inverter = 0; // this is the value that when changed, will directly control the DAC value that is output to the inverter (not yet implemented)
+
 char msg[256];
 char msg1[256];
 
@@ -177,6 +183,22 @@ static void monitor_Signals(void) {
     //		current_State = STANDBY_STATE;
     //	}
 
+#ifdef DEBUG
+
+	sprintf(msg, "Raw accelerator inputs: %d %d\n", appsVal[0], appsVal[1]);
+	HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
+
+	sprintf(msg, "Processed accelerator inputs: %d %d\n", apps_Pedal_Position[0], apps_Pedal_Position[1]);
+	HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
+
+	sprintf(msg, "Raw brake input: %d\n", bpsVal[0]);
+	HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
+
+	// also print: whether drive enable GPIO pin is on or off
+
+#endif
+
+
 } //end monitor_Signals()
 
 // TODO: Rename APPS_Mapping -> APPSMapEncoderValueToPositionPercentage
@@ -203,7 +225,8 @@ static void APPS_Mapping(uint32_t * appsVal_0, uint32_t * appsVal_1,
 
 } //end APPS_Mapping()
 
-
+// return false when error
+// TODO: rename to: Signals_Are_Plausible() or something like that.
 static bool Signal_Plausibility_Check(){
 	// if the difference between signals is greater than 10% for more than 100ms, return false, otherwise return true
 	static int start_time = 0;
@@ -228,15 +251,25 @@ static bool Signal_Plausibility_Check(){
 	return true;
 }
 
+// TODO: this isn't implemented properly yet. read the manual.
 static bool Brake_Pedal_Plausibility_Check(){
-	// TODO: Add timer to this to prevent car from entering this mode on small sensor midreading.
-	return (apps_Pedal_Position[0] > 25) && (bpsVal[0] > bpsThreshold);
+
+	// this function must:
+
+
+}
+
+// return true when the check passes
+static bool APPS_Brake_Pedal_Plausibility_Check(){
+	// TODO: Add very small timer to this? to prevent car from entering this mode on small sensor mis-reading.
+	return !((apps_Pedal_Position[0] > 25) && (bpsVal[0] > bps_MIN + BRAKE_SIGNAL_BUFFER));
 }
 
 
+// return true when error
 static bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1){
-	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return false;
-	return true;
+	if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX) return true;
+	return false;
 }
 
 
@@ -258,18 +291,18 @@ static void Ready_to_Drive(void) {
         last_State = STANDBY_STATE;
     }
     //checking if brakes are pressed, start button is pressed and (not implemented: HV Present) at the same time
-    if ((bpsVal[0] >= bpsThreshold) &&
-        (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port,
-            Start_Button_Pin))) {
+    if ((bpsVal[0] >= bpsThreshold) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin))) {
 
-        //sound buzzer for minimum of 1 second and maximum of 3 seconds using timer
+
+    		//sound buzzer (and enable green on-board LED) for minimum of 1 second and maximum of 3 seconds using timer
         HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
         HAL_Delay(2000); //sound buzzer for 2 seconds
         HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
         sprintf(msg, "Ready to Drive Enabled...\n");
-        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
-            HAL_MAX_DELAY);
+        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
 
         // change the current state to RUNNING_STATE
         current_State = RUNNING_STATE;
@@ -286,9 +319,9 @@ static void running_State(void) {
         enable_motor_movement();
 
         sprintf(msg, "Running State...\n");
-        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
-            HAL_MAX_DELAY);
+        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
     } //end if
+
 
     // check for errors here.
 
@@ -297,20 +330,19 @@ static void running_State(void) {
     	return;
     }
 
-    APPS_Mapping( & appsVal[0], & appsVal[1], apps_Pedal_Position);
-
-    if(Signal_Plausibility_Check()){
+    if(!Signal_Plausibility_Check()){
     	current_State = ERROR_STATE;
     	return;
     }
 
-    if (Brake_Pedal_Plausibility_Check()) {
+    if (!APPS_Brake_Pedal_Plausibility_Check()) {
         current_State = BSPD_TRIP_STATE;
         return;
     } //end if
 
 
     // TODO: send pedal percentage to DAC here and output to inverters.
+    // TODO: create a new variable that represents the output to the DAC for the inverter controls
 
 } //end running()
 
@@ -323,14 +355,14 @@ static void BSPD_Trip_State(void) {
         disable_motor_movement();
 
         sprintf(msg, "BSPD Trip State...\n");
-        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg),
-            HAL_MAX_DELAY);
+        HAL_UART_Transmit( & huart2, (uint8_t * ) msg, strlen(msg), HAL_MAX_DELAY);
+
     } //end if
 
     // Send CAN message to notify in BSPD trip state
 
     // Stay in BSPD_Trip_State until accel pedal is less than 5%. brake pedal is don't care.
-    if ((apps_Pedal_Position[0] < 5) && bpsVal[0] < bpsThreshold) {
+    if (apps_Pedal_Position[0] < 5) {
         current_State = RUNNING_STATE;
     } //end if
 
@@ -379,10 +411,6 @@ static void error_State(void) {
     } //end if
 
 } //end errorState()
-
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef * hadc) {
-
-}
 
 /* USER CODE END 0 */
 
@@ -456,6 +484,9 @@ int main(void) {
 
         //Should always be monitoring for signals from APPS, Brake sensors and TS active
         monitor_Signals();
+
+        // Pedal position values are needed in all of these functions so they should be updated. Is this the best place to do it though? Should it be handled with interrupts / another faster mehtod?
+        APPS_Mapping( & appsVal[0], & appsVal[1], apps_Pedal_Position);
 
         // FSM (Finite State Machine)
         switch (current_State) {
