@@ -5,3 +5,4 @@
 .launch
 .metadata
 /.project
+/cmake-build-debug
