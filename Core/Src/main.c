@@ -52,6 +52,9 @@ const uint32_t APPS_0_MAX = 2800; //Above range ADC value for APPS_0
 const uint32_t APPS_1_MIN = 400; //Below range ADC value for APPS_1
 const uint32_t APPS_1_MAX = 3900; //Above range ADC value for APPS_1
 
+const uint32_t MIN_DAC_VAL = 0;
+const uint32_t MAX_DAC_VAL = 4095;
+
 //#define LOOP_TIME_INTERVAL  0.001 //loop time in counts x milliseconds, 0.001 x 0.001 == 0.001s -> 10000Hz
 #define LOOP_TIME_INTERVAL 100 //loop time in counts x milliseconds, 100 x 0.001 == 0.1s -> 10Hz
 #define SQRT_2 1.4142
@@ -72,6 +75,8 @@ DMA_HandleTypeDef hdma_adc2;
 DMA_HandleTypeDef hdma_adc3;
 
 CAN_HandleTypeDef hcan1;
+
+DAC_HandleTypeDef hdac;
 
 UART_HandleTypeDef huart2;
 
@@ -215,6 +220,20 @@ static void monitor_Signals(void) {
 
 } //end monitor_Signals()
 
+static uint32_t generate_value_for_inverter(uint32_t apps_PP[], uint32_t bpsVal[]) {
+    uint32_t inv_val = 0;
+    // TODO: create the function that maps these inputs to the motor speed. implementing this function will be based on trying different things out.
+    // check this value is between bounds of MIN_DAC_VAL and MAX_DAC_VAL
+    return inv_val;
+}
+
+// this function takes the values from APPS and BSE and turns into a single signal that is output to DAC to control the motor speeds
+static void set_value_to_inverter(uint32_t apps_PP[], uint32_t bpsVal[]){
+    uint32_t inv_val = generate_value_for_inverter(apps_PP, bpsVal);
+    HAL_DAC_Set(inv_val);
+    return;
+}
+
 // TODO: Rename APPS_Mapping -> APPSMapEncoderValueToPositionPercentage
 static void APPS_Mapping(uint32_t *appsVal_0, uint32_t *appsVal_1, uint32_t apps_PP[]) {
 
@@ -303,9 +322,9 @@ static void Ready_to_Drive(void) {
     if (last_State != STANDBY_STATE) {
         last_State = STANDBY_STATE;
     }
-    //checking if brakes are pressed, start button is pressed and (not implemented: HV Present) at the same time
-    // TODO: implement the HV check!!!!!!
-    if ((bpsVal[0] >= bpsThreshold) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin))) {
+    //checking if brakes are pressed, start button is pressed and HV Present at the same time
+    // TODO: test HV present feature.
+    if ((bpsVal[0] >= bpsThreshold) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin)) && (!HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin))) {
 
 
         //sound buzzer (and enable green on-board LED) for minimum of 1 second and maximum of 3 seconds using timer
@@ -355,8 +374,8 @@ static void running_State(void) {
     } //end if
 
 
-    // TODO: send pedal percentage to DAC here and output to inverters.
-    // TODO: create a new variable that represents the output to the DAC for the inverter controls
+    // send pedal percentage to DAC here and output to inverters.
+    set_value_to_inverter(apps_PP, bpsVal);
 
 } //end running()
 
@@ -388,6 +407,7 @@ static void error_State(void) {
 
     // Turn Drive Enable OFF
 
+    // todo: why is this happening for each run of this loop?
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
 
     if (last_State != ERROR_STATE) {
@@ -417,6 +437,12 @@ static void error_State(void) {
         }
 
     } //end if
+
+    // TODO: test this feature. also check for no movement
+    // when ignition button is pressed in error state, return back to standby state
+    if (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin)) {
+        current_State = STANDBY_STATE;
+    }
 
 } //end errorState()
 
@@ -455,6 +481,7 @@ int main(void) {
     MX_ADC2_Init();
     MX_ADC3_Init();
     MX_CAN1_Init();
+    MX_DAC_Init();
     /* USER CODE BEGIN 2 */
     HAL_ADC_Start_DMA(&hadc1, &appsVal[0], 1); //start the ADC for APPS 1 (Rotational Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc2, &appsVal[1], 1); //start the ADC for APPS 2 (Linear Sensor) in DMA mode
@@ -770,10 +797,47 @@ static void MX_CAN1_Init(void) {
 }
 
 /**
- * @brief USART2 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief DAC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_DAC_Init(void) {
+
+    /* USER CODE BEGIN DAC_Init 0 */
+
+    /* USER CODE END DAC_Init 0 */
+
+    DAC_ChannelConfTypeDef sConfig = {0};
+
+    /* USER CODE BEGIN DAC_Init 1 */
+
+    /* USER CODE END DAC_Init 1 */
+
+    /** DAC Initialization
+    */
+    hdac.Instance = DAC;
+    if (HAL_DAC_Init(&hdac) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /** DAC channel OUT1 config
+    */
+    sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+    sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+    if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN DAC_Init 2 */
+
+    /* USER CODE END DAC_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USART2_UART_Init(void) {
 
     /* USER CODE BEGIN USART2_Init 0 */
