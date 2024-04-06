@@ -133,7 +133,7 @@ static void MX_DAC_Init(void);
 /* USER CODE BEGIN PFP */
 static void monitor_Signals(void);
 
-static void Ready_to_Drive(void);
+static void standby_State(void);
 
 static void APPS_Mapping(uint32_t *appsVal_0, uint32_t *appsVal_1, uint32_t apps_PP[]);
 
@@ -181,7 +181,7 @@ static void monitor_Signals(void) {
     //		current_State = STANDBY_STATE;
     //	}
 
-#ifdef DEBUG
+    #ifdef DEBUG
 
     sprintf(msg, "Raw accelerator inputs: %d %d\n", appsVal[0], appsVal[1]);
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
@@ -194,7 +194,7 @@ static void monitor_Signals(void) {
 
     // also print: whether drive enable GPIO pin is on or off
 
-#endif
+    #endif
 
 
 } //end monitor_Signals()
@@ -266,7 +266,7 @@ static bool Signal_Plausibility_Check() {
 static bool Brake_Pedal_Plausibility_Check() {
 
     // this function must:
-
+    
 
 }
 
@@ -295,8 +295,7 @@ static inline void disable_motor_movement() {
 
 
 //// State Functions
-// TODO: This should ideally be called standby_State()
-static void Ready_to_Drive(void) {
+static void standby_State(void) {
 
     if (last_State != STANDBY_STATE) {
         last_State = STANDBY_STATE;
@@ -321,7 +320,7 @@ static void Ready_to_Drive(void) {
 
     } //end if
 
-} //end Ready_to_Drive()
+} //end standby_State()
 
 static void running_State(void) {
 
@@ -490,7 +489,7 @@ int main(void) {
         switch (current_State) {
 
             case STANDBY_STATE:
-                Ready_to_Drive(); // TODO: This should ideally be called standby_State()
+                standby_State();
                 break;
 
             case RUNNING_STATE:
@@ -924,6 +923,11 @@ void Error_Handler(void) {
     while (1) {}
     /* USER CODE END Error_Handler_Debug */
 }
+
+
+// TODO: Add interrupt here for ignition button, process input based on state
+
+
 
 #ifdef  USE_FULL_ASSERT
 /**
