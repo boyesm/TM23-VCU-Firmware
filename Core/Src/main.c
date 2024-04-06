@@ -192,6 +192,9 @@ static void monitor_Signals(void) {
     sprintf(msg, "Raw brake input: %d\n", bpsVal[0]);
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
+    sprintf(msg, "Output to inverter: %d\n\n\n", value_to_inverter);
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+
     // also print: whether drive enable GPIO pin is on or off
 
     #endif
@@ -200,7 +203,12 @@ static void monitor_Signals(void) {
 } //end monitor_Signals()
 
 static uint32_t generate_value_for_inverter(uint32_t apps_PP[], uint32_t bpsVal[]) {
-    uint32_t inv_val = 0;
+		uint32_t adjusted_input_val = appsVal[0] - APPS_0_MIN;
+		if (adjusted_input_val < 0) adjusted_input_val = 0;
+    uint32_t inv_val = (uint32_t)(adjusted_input_val) * (((1 << 12) - 1) / (APPS_0_MAX - APPS_0_MIN)); // TODO: This is a ghetto function that will actually need to be made proper
+    // TODO: need to average values coming from pedal for this. also need to use both pedal values somehow.
+    // TODO: inv_val must be prevented from being a negative value
+    // this value has a max of 4095 and lower bound of 0
     // TODO: create the function that maps these inputs to the motor speed. implementing this function will be based on trying different things out.
     // check this value is between bounds of MIN_DAC_VAL and MAX_DAC_VAL
     return inv_val;
@@ -208,8 +216,8 @@ static uint32_t generate_value_for_inverter(uint32_t apps_PP[], uint32_t bpsVal[
 
 // this function takes the values from APPS and BSE and turns into a single signal that is output to DAC to control the motor speeds
 static void set_value_to_inverter(uint32_t apps_PP[], uint32_t bpsVal[]){
-    uint32_t inv_val = generate_value_for_inverter(apps_PP, bpsVal);
-    HAL_DAC_Set(inv_val);
+    value_to_inverter = generate_value_for_inverter(apps_PP, bpsVal);
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, value_to_inverter);
     return;
 }
 
@@ -293,9 +301,14 @@ static inline void disable_motor_movement() {
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
 }
 
+static inline void enable_dac_channel_1(){
+	DAC1->CR |= 1;
+}
+
 
 //// State Functions
 static void standby_State(void) {
+		set_value_to_inverter(&appsVal, &bpsVal);  // TODO: remove this from here, this is for testing only!!!!
 
     if (last_State != STANDBY_STATE) {
         last_State = STANDBY_STATE;
@@ -353,7 +366,7 @@ static void running_State(void) {
 
 
     // send pedal percentage to DAC here and output to inverters.
-    set_value_to_inverter(apps_PP, bpsVal);
+    set_value_to_inverter(&appsVal, &bpsVal);
 
 } //end running()
 
@@ -468,7 +481,7 @@ int main(void) {
     char msg[256];
     //	uint32_t AC_Current_Command;
     //	uint32_t ERPM_command;
-
+    enable_dac_channel_1();
     /* USER CODE END 2 */
 
     /* Infinite loop */
