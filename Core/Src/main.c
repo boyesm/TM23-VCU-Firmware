@@ -104,11 +104,6 @@ uint8_t BMS_Current_Limit;
 float DC_Max_Current = 100.0;
 float AC_Max_Current = 100.0 * SQRT_2; //Peak not RMS
 
-//CAN Message ID's
-uint32_t BMS_Current_Limit_ID = 0x00000A07;
-uint32_t Drive_Enable_ID = 0x00000C07;
-uint32_t Set_AC_Current_ID = 0x00000107;
-
 bool ready_to_drive = false;
 
 bool APPS_Failure = false;
@@ -168,22 +163,6 @@ char msg1[256];
 STATEVAR current_State = STANDBY_STATE;
 STATEVAR last_State = UNDEFINED_STATE;
 uint8_t errorCode = ERR_NONE;
-
-//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-//
-//	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
-//		Error_Handler();
-//	}
-//
-//	//Received message from BMS about current limit (Need to config. CAN filter, so VCU only accepts messages from BMS based on BMS CAN I.D)
-//	if (RxHeader.ExtId == BMS_Current_Limit_ID) {
-//		bms_Current_Limit_Ready = true;
-//		BMS_Current_Limit = RxData[1] / 10;
-//		sprintf(msg, "BMS_Current_Limit (%ld) = %d \r\n", RxHeader.ExtId,
-//				BMS_Current_Limit);
-//		HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-//	} //end if
-//}
 
 //// Util Functions
 static void monitor_Signals(void) {
@@ -486,22 +465,6 @@ int main(void) {
     HAL_ADC_Start_DMA(&hadc1, &appsVal[0], 1); //start the ADC for APPS 1 (Rotational Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc2, &appsVal[1], 1); //start the ADC for APPS 2 (Linear Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc3, &bpsVal[0], 1); //start the ADC for Brake Pressure Sensors in DMA mode
-
-    //Start the CAN Bus
-    //	HAL_CAN_Start(&hcan1);
-    //
-    ////	Initialize the CAN RX Interrupt
-    //	if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING)
-    //			!= HAL_OK) {
-    //		Error_Handler();
-    //	}
-    //
-    //	//Setting Required Data Values for CAN frame
-    //	TxHeader.DLC = 8;	//data length in bytes
-    ////	TxHeader.IDE = CAN_ID_STD; //specify standard CAN ID
-    //	TxHeader.IDE = CAN_ID_EXT; //specify Extended CAN ID
-    //	TxHeader.RTR = CAN_RTR_DATA; //specifies we are sending a CAN frame
-    //	TxHeader.TransmitGlobalTime = DISABLE;
 
     char msg[256];
     //	uint32_t AC_Current_Command;
