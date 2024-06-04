@@ -22,13 +22,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
-
 #include <stdio.h>
-
 #include <stdbool.h>
-
 #include <stdlib.h>
-
 #include <states.h>
 
 /* USER CODE END Includes */
@@ -42,15 +38,19 @@
 /* USER CODE BEGIN PD */
 //#define APPS_BUF_LEN 4096
 #define BRAKE_SIGNAL_BUFFER 50 // this value is used in APPS_Brake_Pedal_Plausibility_Test() to ensure that function doesn't become true in error due to signal noise
+#define APPS_MINIMUM_THRESHOLD 400 // this is the minimum 12 bit value that the apps sensor must produce in order to go forward.
+#define APPS_FLOOR_THRESHOLD 200 // this is the value that must be produced in addition to the APPS_n_MIN value in order for the car to register a pedal press
+#define BPS_MINIMUM_THRESHOLD 200
 
 // TODO: These values must be calibrated when the VCU is integrated with the sensors.
-const uint32_t bpsThreshold = 2000; //need to set to store the signal value which corresponds to brakes being pressed
-const uint32_t bps_MIN = 400; //Below range ADC value for BPS
-const uint32_t bps_MAX = 3900; //Above range ADC value for BPS
-const uint32_t APPS_0_MIN = 200; //Below range ADC value for APPS_0
-const uint32_t APPS_0_MAX = 2800; //Above range ADC value for APPS_0
-const uint32_t APPS_1_MIN = 400; //Below range ADC value for APPS_1
-const uint32_t APPS_1_MAX = 3900; //Above range ADC value for APPS_1
+const uint32_t BPS_MIN = 600; //Below range ADC value for BPS
+const uint32_t BPS_MAX = 1200; //Above range ADC value for BPS
+const uint32_t APPS_0_MIN = 600; //Below range ADC value for APPS_0
+const uint32_t APPS_0_MAX = 4095; //Above range ADC value for APPS_0
+const uint32_t APPS_1_SIGNAL_MIN = 600;
+const uint32_t APPS_1_SIGNAL_MAX = 4095;
+const uint32_t APPS_1_MIN = 0; //Below range ADC value for APPS_1
+const uint32_t APPS_1_MAX = APPS_1_SIGNAL_MAX - APPS_1_SIGNAL_MIN; //Above range ADC value for APPS_1
 
 const uint32_t MIN_DAC_VAL = 0;
 const uint32_t MAX_DAC_VAL = 4095;
@@ -59,6 +59,7 @@ const uint32_t MAX_DAC_VAL = 4095;
 #define LOOP_TIME_INTERVAL 100 //loop time in counts x milliseconds, 100 x 0.001 == 0.1s -> 10Hz
 #define SQRT_2 1.4142
 #define DEBUG
+//#define TESTING
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -97,6 +98,7 @@ struct appsPedalDepressionPercentage {
 
 // TODO: change these to structs, rename variables so its extremely clear what these do
 uint32_t bpsVal[2]; //to store Brake Pressure Sensor values
+uint32_t bps_Pedal_Position[2];
 
 //struct
 
@@ -136,6 +138,7 @@ static void monitor_Signals(void);
 static void standby_State(void);
 
 static void APPS_Mapping(uint32_t *appsVal_0, uint32_t *appsVal_1, uint32_t apps_PP[]);
+static void BPS_Mapping(uint32_t *bpsVal, uint32_t bps_PP[]);
 
 static void running_State(void);
 
@@ -183,6 +186,19 @@ static void monitor_Signals(void) {
 
     #ifdef DEBUG
 
+    #ifdef TESTING
+    sprintf(msg, "Test mode enabled?: YES\n");
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+    #endif
+
+    #ifndef TESTING
+    sprintf(msg, "Test mode enabled?: NO\n");
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+    #endif
+
+    sprintf(msg, "Current state: %d\n", current_State);
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+
     sprintf(msg, "Raw accelerator inputs: %d %d\n", appsVal[0], appsVal[1]);
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
@@ -190,6 +206,9 @@ static void monitor_Signals(void) {
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
     sprintf(msg, "Raw brake input: %d\n", bpsVal[0]);
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+
+    sprintf(msg, "Processed brake input: %d\n", bps_Pedal_Position[0]);
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
     sprintf(msg, "Output to inverter: %d\n\n\n", value_to_inverter);
@@ -202,11 +221,45 @@ static void monitor_Signals(void) {
 
 } //end monitor_Signals()
 
+#define BUFFER_SIZE 7
+
+int apps1_buffer[BUFFER_SIZE] = {0};
+int apps2_buffer[BUFFER_SIZE] = {0};
+int bps_buffer[BUFFER_SIZE] = {0};
+
+int apps1_index = 0;
+int apps2_index = 0;
+int bps_index = 0;
+
+int apps1_count = 0;
+int apps2_count = 0;
+int bps_count = 0;
+
+
+void add_to_buffer(int buffer[], int *index, int *count, int new_value) {
+    buffer[*index] = new_value;
+    *index = (*index + 1) % BUFFER_SIZE;
+    if (*count < BUFFER_SIZE) {
+        (*count)++;
+    }
+}
+
+int calculate_average(const int buffer[], int count) {
+    int sum = 0;
+    for (int i = 0; i < count; i++) {
+        sum += buffer[i];
+    }
+
+    if (count == 0) return 0; // Prevent division by zero
+    return sum / count;
+}
+
+
 static uint32_t generate_value_for_inverter(uint32_t apps_PP[], uint32_t bpsVal[]) {
-		uint32_t adjusted_input_val = appsVal[0] - APPS_0_MIN;
-		if (adjusted_input_val < 0) adjusted_input_val = 0;
-    uint32_t inv_val = (uint32_t)(adjusted_input_val) * (((1 << 12) - 1) / (APPS_0_MAX - APPS_0_MIN)); // TODO: This is a ghetto function that will actually need to be made proper
+    uint32_t inv_val = apps_Pedal_Position[0] * (((1 << 12) - 1) / 100);  // this just multiplies the pedal position percentage by 4095 / 100
+		//    uint32_t inv_val = (uint32_t)(adjusted_input_val) * (((1 << 12) - 1) / (APPS_0_MAX - APPS_0_MIN)); // TODO: This is a ghetto function that will actually need to be made proper
     // TODO: need to average values coming from pedal for this. also need to use both pedal values somehow.
+    	// I have averaged the pedal values
     // TODO: inv_val must be prevented from being a negative value
     // this value has a max of 4095 and lower bound of 0
     // TODO: create the function that maps these inputs to the motor speed. implementing this function will be based on trying different things out.
@@ -224,16 +277,11 @@ static void set_value_to_inverter(uint32_t apps_PP[], uint32_t bpsVal[]){
 // TODO: Rename APPS_Mapping -> APPSMapEncoderValueToPositionPercentage
 static void APPS_Mapping(uint32_t *appsVal_0, uint32_t *appsVal_1, uint32_t apps_PP[]) {
 
-    apps_PP[1] = 0.08849557 * (*appsVal_1) - 37.168141592;
-
-    if (apps_PP[1] < 0) {
-        apps_PP[1] = 0;
-    } //end if
-    if (apps_PP[1] > 100) {
-        apps_PP[1] = 100;
-    } //end if
-
-    apps_PP[0] = 0.05405405 * (*appsVal_0) - 35.13513513;
+    if (*appsVal_0 < (APPS_0_MIN + APPS_FLOOR_THRESHOLD)){
+        apps_PP[0] = 0;
+    } else {
+        apps_PP[0] = ((*appsVal_0) - APPS_0_MIN) * (100.00 / (APPS_0_MAX - APPS_0_MIN));
+    }
 
     if (apps_PP[0] < 0) {
         apps_PP[0] = 0;
@@ -242,7 +290,60 @@ static void APPS_Mapping(uint32_t *appsVal_0, uint32_t *appsVal_1, uint32_t apps
         apps_PP[0] = 100;
     } //end if
 
+    // reverse the signal here
+    *appsVal_1 = abs(*appsVal_1 - APPS_1_SIGNAL_MAX);
+
+    if (*appsVal_1 < (APPS_1_MIN + APPS_FLOOR_THRESHOLD)){
+        apps_PP[1] = 0;
+    } else {
+        apps_PP[1] = ((*appsVal_1) - APPS_1_MIN) * (100.00 / (APPS_1_MAX - APPS_1_MIN));
+    }
+
+    if (apps_PP[1] < 0) {
+        apps_PP[1] = 0;
+    } //end if
+    if (apps_PP[1] > 100) {
+        apps_PP[1] = 100;
+    } //end if
+
+//    add_to_buffer(apps2_buffer, &apps2_count, &apps2_index, apps_PP[0]);
+//    apps_PP[0] = calculate_average(apps2_buffer, apps2_count);
+
+    // the code to process the second apps sensor has been disabled. the code below is not correct and must be changed before use.
+//    apps_PP[0] = 0.05405405 * (*appsVal_0) - 35.13513513;
+//
+//    if (apps_PP[0] < 0) {
+//        apps_PP[0] = 0;
+//    } //end if
+//    if (apps_PP[0] > 100) {
+//        apps_PP[0] = 100;
+//    } //end if
+//
+//    add_to_buffer(apps1_buffer, &apps1_count, &apps1_index, apps_PP[1]);
+//    apps_PP[1] = calculate_average(apps1_buffer, apps1_count);
+
+    // do some error checking here
+
+    // if apps_PP[0] or [1] are less than a certain value, set them to 0!
+
+
+
 } //end APPS_Mapping()
+
+static void BPS_Mapping(uint32_t *bpsVal, uint32_t bps_PP[]){
+    if (*bpsVal < (BPS_MIN + BPS_MINIMUM_THRESHOLD)){
+        bps_PP[0] = 0;
+    } else {
+        bps_PP[0] = ((*bpsVal) - BPS_MIN) * (100.00 / (BPS_MAX - BPS_MIN));
+    }
+
+    if (bps_PP[0] < 0) {
+        bps_PP[0] = 0;
+    } //end if
+    if (bps_PP[0] > 100) {
+        bps_PP[0] = 100;
+    } //end if
+}
 
 // return false when error
 // TODO: rename to: Signals_Are_Plausible() or something like that.
@@ -281,13 +382,13 @@ static bool Brake_Pedal_Plausibility_Check() {
 // return true when the check passes
 static bool APPS_Brake_Pedal_Plausibility_Check() {
     // TODO: Add very small timer to this? to prevent car from entering this mode on small sensor mis-reading.
-    return !((apps_Pedal_Position[0] > 25) && (bpsVal[0] > bps_MIN + BRAKE_SIGNAL_BUFFER));
+    return !((apps_Pedal_Position[0] > 25) && (bps_Pedal_Position[0] > 0));
 }
 
 
 // return true when error
 static bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1) {
-    if (*appsVal0 < APPS_0_MIN || *appsVal0 > APPS_0_MAX || *appsVal1 < APPS_1_MIN || *appsVal1 > APPS_1_MAX)
+    if (*appsVal0 < 0 || *appsVal0 > 4095 || *appsVal1 < 0 || *appsVal1 > 4095)
         return true;
     return false;
 }
@@ -298,6 +399,8 @@ static inline void enable_motor_movement() {
 }
 
 static inline void disable_motor_movement() {
+		value_to_inverter = 0;
+		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
 }
 
@@ -308,16 +411,13 @@ static inline void enable_dac_channel_1(){
 
 //// State Functions
 static void standby_State(void) {
-		set_value_to_inverter(&appsVal, &bpsVal);  // TODO: remove this from here, this is for testing only!!!!
-
     if (last_State != STANDBY_STATE) {
         last_State = STANDBY_STATE;
     }
     //checking if brakes are pressed, start button is pressed and HV Present at the same time
     // TODO: test HV present feature.
-    if ((bpsVal[0] >= bpsThreshold) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin)) && (!HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin))) {
 
-
+    if ((bps_Pedal_Position[0] >= 50) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin))) {
         //sound buzzer (and enable green on-board LED) for minimum of 1 second and maximum of 3 seconds using timer
         HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
@@ -348,16 +448,16 @@ static void running_State(void) {
 
 
     // check for errors here.
-
+    // TODO: these error checks don't work.
     if (APPS_Out_Of_Range(&appsVal[0], &appsVal[1])) {
         current_State = ERROR_STATE;
         return;
     }
 
-    if (!Signal_Plausibility_Check()) {
-        current_State = ERROR_STATE;
-        return;
-    }
+//    if (!Signal_Plausibility_Check()) {
+//        current_State = ERROR_STATE;
+//        return;
+//    }
 
     if (!APPS_Brake_Pedal_Plausibility_Check()) {
         current_State = BSPD_TRIP_STATE;
@@ -482,6 +582,15 @@ int main(void) {
     //	uint32_t AC_Current_Command;
     //	uint32_t ERPM_command;
     enable_dac_channel_1();
+
+    #ifdef TESTING
+    while (1) {
+        monitor_Signals();
+        APPS_Mapping(&appsVal[0], &appsVal[1], apps_Pedal_Position);
+        set_value_to_inverter(&appsVal, &bpsVal);
+    }
+    #endif
+
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -497,6 +606,7 @@ int main(void) {
 
         // Pedal position values are needed in all of these functions so they should be updated. Is this the best place to do it though? Should it be handled with interrupts / another faster mehtod?
         APPS_Mapping(&appsVal[0], &appsVal[1], apps_Pedal_Position);
+        BPS_Mapping(&bpsVal[0], bps_Pedal_Position);
 
         // FSM (Finite State Machine)
         switch (current_State) {
