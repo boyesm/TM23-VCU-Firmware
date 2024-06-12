@@ -43,7 +43,16 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
+DMA_HandleTypeDef hdma_adc1;
+DMA_HandleTypeDef hdma_adc2;
+DMA_HandleTypeDef hdma_adc3;
 
+DAC_HandleTypeDef hdac;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
