@@ -118,7 +118,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_adc1.Init.Mode = DMA_CIRCULAR;
+    hdma_adc1.Init.Mode = DMA_NORMAL;
     hdma_adc1.Init.Priority = DMA_PRIORITY_LOW;
     hdma_adc1.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
     hdma_adc1.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
@@ -131,6 +131,9 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 
     __HAL_LINKDMA(hadc,DMA_Handle,hdma_adc1);
 
+    /* ADC1 interrupt Init */
+    HAL_NVIC_SetPriority(ADC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC_IRQn);
   /* USER CODE BEGIN ADC1_MspInit 1 */
 
   /* USER CODE END ADC1_MspInit 1 */
@@ -174,6 +177,9 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 
     __HAL_LINKDMA(hadc,DMA_Handle,hdma_adc2);
 
+    /* ADC2 interrupt Init */
+    HAL_NVIC_SetPriority(ADC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC_IRQn);
   /* USER CODE BEGIN ADC2_MspInit 1 */
 
   /* USER CODE END ADC2_MspInit 1 */
@@ -217,6 +223,9 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 
     __HAL_LINKDMA(hadc,DMA_Handle,hdma_adc3);
 
+    /* ADC3 interrupt Init */
+    HAL_NVIC_SetPriority(ADC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC_IRQn);
   /* USER CODE BEGIN ADC3_MspInit 1 */
 
   /* USER CODE END ADC3_MspInit 1 */
@@ -247,6 +256,16 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 
     /* ADC1 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
+
+    /* ADC1 interrupt DeInit */
+  /* USER CODE BEGIN ADC1:ADC_IRQn disable */
+    /**
+    * Uncomment the line below to disable the "ADC_IRQn" interrupt
+    * Be aware, disabling shared interrupt may affect other IPs
+    */
+    /* HAL_NVIC_DisableIRQ(ADC_IRQn); */
+  /* USER CODE END ADC1:ADC_IRQn disable */
+
   /* USER CODE BEGIN ADC1_MspDeInit 1 */
 
   /* USER CODE END ADC1_MspDeInit 1 */
@@ -266,6 +285,16 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 
     /* ADC2 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
+
+    /* ADC2 interrupt DeInit */
+  /* USER CODE BEGIN ADC2:ADC_IRQn disable */
+    /**
+    * Uncomment the line below to disable the "ADC_IRQn" interrupt
+    * Be aware, disabling shared interrupt may affect other IPs
+    */
+    /* HAL_NVIC_DisableIRQ(ADC_IRQn); */
+  /* USER CODE END ADC2:ADC_IRQn disable */
+
   /* USER CODE BEGIN ADC2_MspDeInit 1 */
 
   /* USER CODE END ADC2_MspDeInit 1 */
@@ -285,79 +314,19 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 
     /* ADC3 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
+
+    /* ADC3 interrupt DeInit */
+  /* USER CODE BEGIN ADC3:ADC_IRQn disable */
+    /**
+    * Uncomment the line below to disable the "ADC_IRQn" interrupt
+    * Be aware, disabling shared interrupt may affect other IPs
+    */
+    /* HAL_NVIC_DisableIRQ(ADC_IRQn); */
+  /* USER CODE END ADC3:ADC_IRQn disable */
+
   /* USER CODE BEGIN ADC3_MspDeInit 1 */
 
   /* USER CODE END ADC3_MspDeInit 1 */
-  }
-
-}
-
-/**
-* @brief CAN MSP Initialization
-* This function configures the hardware resources used in this example
-* @param hcan: CAN handle pointer
-* @retval None
-*/
-void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hcan->Instance==CAN1)
-  {
-  /* USER CODE BEGIN CAN1_MspInit 0 */
-
-  /* USER CODE END CAN1_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_CAN1_CLK_ENABLE();
-
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**CAN1 GPIO Configuration
-    PA11     ------> CAN1_RX
-    PA12     ------> CAN1_TX
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF9_CAN1;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* CAN1 interrupt Init */
-    HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-  /* USER CODE BEGIN CAN1_MspInit 1 */
-
-  /* USER CODE END CAN1_MspInit 1 */
-  }
-
-}
-
-/**
-* @brief CAN MSP De-Initialization
-* This function freeze the hardware resources used in this example
-* @param hcan: CAN handle pointer
-* @retval None
-*/
-void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
-{
-  if(hcan->Instance==CAN1)
-  {
-  /* USER CODE BEGIN CAN1_MspDeInit 0 */
-
-  /* USER CODE END CAN1_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_CAN1_CLK_DISABLE();
-
-    /**CAN1 GPIO Configuration
-    PA11     ------> CAN1_RX
-    PA12     ------> CAN1_TX
-    */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11|GPIO_PIN_12);
-
-    /* CAN1 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(CAN1_RX0_IRQn);
-  /* USER CODE BEGIN CAN1_MspDeInit 1 */
-
-  /* USER CODE END CAN1_MspDeInit 1 */
   }
 
 }
