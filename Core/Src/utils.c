@@ -12,7 +12,6 @@ void enable_motor_movement() {
 
 void disable_motor_movement() {
     value_to_inverter = 0;
-    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_RESET);
 }
 
@@ -23,8 +22,6 @@ void enable_dac_channel_1(){
 // this function takes the values from APPS and BSE and turns into a single signal that is output to DAC to control the motor speeds
 void set_value_to_inverter(uint32_t apps_PP[], uint32_t bpsVal[]){
     value_to_inverter = generate_value_for_inverter(apps_PP, bpsVal);
-    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, value_to_inverter);
-    return;
 }
 
 uint32_t generate_value_for_inverter(uint32_t apps_PP[], uint32_t bpsVal[]) {
