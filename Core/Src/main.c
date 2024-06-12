@@ -36,30 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-//#define APPS_BUF_LEN 4096
-#define BRAKE_SIGNAL_BUFFER 50 // this value is used in APPS_Brake_Pedal_Plausibility_Test() to ensure that function doesn't become true in error due to signal noise
-#define APPS_MINIMUM_THRESHOLD 400 // this is the minimum 12 bit value that the apps sensor must produce in order to go forward.
-#define APPS_FLOOR_THRESHOLD 200 // this is the value that must be produced in addition to the APPS_n_MIN value in order for the car to register a pedal press
-#define BPS_MINIMUM_THRESHOLD 200
 
-// TODO: These values must be calibrated when the VCU is integrated with the sensors.
-const uint32_t BPS_MIN = 600; //Below range ADC value for BPS
-const uint32_t BPS_MAX = 1200; //Above range ADC value for BPS
-const uint32_t APPS_0_MIN = 600; //Below range ADC value for APPS_0
-const uint32_t APPS_0_MAX = 4095; //Above range ADC value for APPS_0
-const uint32_t APPS_1_SIGNAL_MIN = 600;
-const uint32_t APPS_1_SIGNAL_MAX = 4095;
-const uint32_t APPS_1_MIN = 0; //Below range ADC value for APPS_1
-const uint32_t APPS_1_MAX = APPS_1_SIGNAL_MAX - APPS_1_SIGNAL_MIN; //Above range ADC value for APPS_1
-
-const uint32_t MIN_DAC_VAL = 0;
-const uint32_t MAX_DAC_VAL = 4095;
-
-//#define LOOP_TIME_INTERVAL  0.001 //loop time in counts x milliseconds, 0.001 x 0.001 == 0.001s -> 10000Hz
-#define LOOP_TIME_INTERVAL 100 //loop time in counts x milliseconds, 100 x 0.001 == 0.1s -> 10Hz
-#define SQRT_2 1.4142
-#define DEBUG
-//#define TESTING
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
