@@ -88,6 +88,7 @@ void Error_Handler(void);
 #define APPS_MINIMUM_THRESHOLD 400 // this is the minimum 12 bit value that the apps sensor must produce in order to go forward.
 #define APPS_FLOOR_THRESHOLD 65 // this is the value that must be produced in addition to the APPS_n_MIN value in order for the car to register a pedal press
 #define BPS_MINIMUM_THRESHOLD 200
+#define APPS_DISCONNECTED 200 // this is the greatest expected value from the APPS when a sensor is not connected
 
 // TODO: These values must be calibrated when the VCU is integrated with the sensors.
 #define BPS_MIN 800  //Below range ADC value for BPS

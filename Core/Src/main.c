@@ -359,6 +359,11 @@ static bool APPS_Out_Of_Range(uint32_t *appsVal0, uint32_t *appsVal1) {
     return false;
 }
 
+static bool APPS_Are_Not_Connected(uint32_t *appsVal0, uint32_t *appsVal1){
+    if (*appsVal0 <  APPS_DISCONNECTED || *appsVal1 < APPS_DISCONNECTED) { return true; }
+    else { return false; }
+}
+
 
 static inline void enable_motor_movement() {
     HAL_GPIO_WritePin(Drive_Enable_Output_GPIO_Port, Drive_Enable_Output_Pin, GPIO_PIN_SET);
@@ -416,6 +421,11 @@ static void running_State(void) {
     // check for errors here.
     // TODO: these error checks don't work.
     if (APPS_Out_Of_Range(&appsVal[0], &appsVal[1])) {
+        current_State = ERROR_STATE;
+        return;
+    }
+
+    if (APPS_Are_Not_Connected(&appsVal[0], &appsVal[1])) {
         current_State = ERROR_STATE;
         return;
     }
