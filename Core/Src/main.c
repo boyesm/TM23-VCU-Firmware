@@ -936,8 +936,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Start_Button_Pin APPS_1_SW_Pin APPS_2_SW_Pin */
-  GPIO_InitStruct.Pin = Start_Button_Pin|APPS_1_SW_Pin|APPS_2_SW_Pin;
+  /*Configure GPIO pins : Start_Button_Pin APPS_1_SW_Pin APPS_2_SW_Pin PC9 */
+  GPIO_InitStruct.Pin = Start_Button_Pin|APPS_1_SW_Pin|APPS_2_SW_Pin|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -963,11 +963,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Drive_Enable_Output_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : HV_Present_Pin PA11 */
-  GPIO_InitStruct.Pin = HV_Present_Pin|GPIO_PIN_11;
+  /*Configure GPIO pin : HV_Present_Pin */
+  GPIO_InitStruct.Pin = HV_Present_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(HV_Present_GPIO_Port, &GPIO_InitStruct);
 
 }
 
