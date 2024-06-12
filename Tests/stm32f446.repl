@@ -1,0 +1,17 @@
+// using "/Users/malcolm/Projects/half-baked-learning-projects/stm32-renode-test/Tests/stm32f4.repl"
+using "platforms/cpus/stm32f4.repl"
+
+adc1: Analog.STM32_ADC @ sysbus <0x40012000, +0x50>
+    IRQ -> nvic@18
+
+adc2: Analog.STM32_ADC @ sysbus <0x40012100, +0x50>
+    IRQ -> nvic@18
+
+adc3: Analog.STM32_ADC @ sysbus <0x40012200, +0x50>
+    IRQ -> nvic@18
+
+
+dac: Analog.STM32_DAC @ sysbus <0x40007400, +0x38>
+
+
+

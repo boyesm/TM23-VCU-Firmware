@@ -1,0 +1,19 @@
+using "/Users/malcolm/Projects/half-baked-learning-projects/stm32-renode-test/Tests/stm32f446nucleo.repl"
+
+StartButton: Miscellaneous.Button @ gpioPortC
+    -> gpioPortC@1
+
+// These are modelled as LEDs despite not necessarily \
+// being LEDs because this allows their state to be easily asserted
+HVPresent: Miscellaneous.LED @ gpioPortA 9
+
+ReadyToDriveSound: Miscellaneous.LED @ gpioPortC 2
+
+DriveOutputEnable: Miscellaneous.LED @ gpioPortC 5
+
+gpioPortA:
+    9 -> HVPresent@0
+
+gpioPortC:
+    2 -> ReadyToDriveSound@0
+    5 -> DriveOutputEnable@0

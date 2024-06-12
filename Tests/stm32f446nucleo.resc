@@ -1,0 +1,32 @@
+:name: STM32F4 Discovery
+:description: This script runs a binary on the STM32F4-based Nucleo board.
+
+using sysbus
+$name?="VCU"
+mach create $name
+machine LoadPlatformDescription "/Users/malcolm/Projects/half-baked-learning-projects/stm32-renode-test/Tests/vcu.repl"
+
+cpu PerformanceInMips 125
+
+$bin?="/Users/malcolm/Projects/TMFR/VCU-Code/TM23-VCU-Firmware/cmake-build-debug/TM23-VCU-Firmware.elf"
+
+showAnalyzer sysbus.usart2
+
+### Set random board UNIQUE ID ###
+
+python "import _random"
+python "rand = _random.Random()"
+
+$id1 = `python "print rand.getrandbits(32)"`
+$id2 = `python "print rand.getrandbits(32)"`
+$id3 = `python "print rand.getrandbits(32)"`
+macro reset
+"""
+    sysbus LoadELF $bin
+
+    sysbus WriteDoubleWord 0x1FFF7A10 $id1
+    sysbus WriteDoubleWord 0x1FFF7A14 $id2
+    sysbus WriteDoubleWord 0x1FFF7A18 $id3
+"""
+
+runMacro $reset
