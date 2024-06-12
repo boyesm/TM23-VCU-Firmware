@@ -31,7 +31,11 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -41,6 +45,28 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
+extern DMA_HandleTypeDef hdma_adc1;
+extern DMA_HandleTypeDef hdma_adc2;
+extern DMA_HandleTypeDef hdma_adc3;
+extern DAC_HandleTypeDef hdac;
+extern UART_HandleTypeDef huart2;
+extern uint32_t value_to_inverter; // this is the value that when changed, will directly control the DAC value that is output to the inverter (not yet implemented)
+
+extern char msg[256];
+
+// TODO: change these to structs, rename variables so its extremely clear what these do
+extern uint32_t appsVal[2]; //to store APPS ADC values
+extern uint32_t apps_Pedal_Position[2]; //to store APPS Pedal Position Values (in %)
+// TODO: average these two values? (or some other function) and create a single value that represents the current pedal position
+
+// TODO: merge these variables with the arrays above into a single struct for each.
+// bpsVal has no reason to be an array, it only stores a single value.
+extern uint32_t bpsVal[2]; //to store Brake Pressure Sensor values
+extern uint32_t bps_Pedal_Position[2];
+
 
 /* USER CODE END EC */
 
