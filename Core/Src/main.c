@@ -51,6 +51,7 @@ DMA_HandleTypeDef hdma_adc2;
 DMA_HandleTypeDef hdma_adc3;
 
 DAC_HandleTypeDef hdac;
+DMA_HandleTypeDef hdma_dac1;
 
 UART_HandleTypeDef huart2;
 
@@ -68,7 +69,6 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_DAC_Init(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -134,13 +134,14 @@ int main(void) {
     HAL_ADC_Start_DMA(&hadc1, &appsVal[0], 1); //start the ADC for APPS 1 (Rotational Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc2, &appsVal[1], 1); //start the ADC for APPS 2 (Linear Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc3, &bpsVal[0], 1); //start the ADC for Brake Pressure Sensors in DMA mode
+    HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, &value_to_inverter, 1, DAC_ALIGN_12B_R);
 
     enable_dac_channel_1();
 
     sprintf(msg, "System initialized.\n");
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
-    #ifdef TESTING
+#ifdef TESTING
     while (1) {
         APPSMapEncoderValueToPositionPercentage(&appsVal[0], &appsVal[1], apps_Pedal_Position);
         set_value_to_inverter(&appsVal, &bpsVal);
@@ -148,7 +149,7 @@ int main(void) {
         monitor_Signals();
         HAL_Delay(50);
     }
-    #endif
+#endif
 
     /* USER CODE END 2 */
 
@@ -235,7 +236,8 @@ void SystemClock_Config(void) {
 
     /** Initializes the CPU, AHB and APB buses clocks
     */
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                                  | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -468,8 +470,12 @@ static void MX_DMA_Init(void) {
 
     /* DMA controller clock enable */
     __HAL_RCC_DMA2_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
 
     /* DMA interrupt init */
+    /* DMA1_Stream5_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
     /* DMA2_Stream0_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -508,8 +514,8 @@ static void MX_GPIO_Init(void) {
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-    /*Configure GPIO pins : Start_Button_Pin APPS_1_SW_Pin APPS_2_SW_Pin */
-    GPIO_InitStruct.Pin = Start_Button_Pin | APPS_1_SW_Pin | APPS_2_SW_Pin;
+    /*Configure GPIO pins : Start_Button_Pin APPS_1_SW_Pin APPS_2_SW_Pin PC9 */
+    GPIO_InitStruct.Pin = Start_Button_Pin | APPS_1_SW_Pin | APPS_2_SW_Pin | GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -558,11 +564,6 @@ void Error_Handler(void) {
     while (1) {}
     /* USER CODE END Error_Handler_Debug */
 }
-
-
-// TODO: Add interrupt here for ignition button, process input based on state
-
-
 
 #ifdef  USE_FULL_ASSERT
 /**
