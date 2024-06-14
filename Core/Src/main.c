@@ -43,7 +43,19 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
+DMA_HandleTypeDef hdma_adc1;
+DMA_HandleTypeDef hdma_adc2;
+DMA_HandleTypeDef hdma_adc3;
 
+DAC_HandleTypeDef hdac;
+DMA_HandleTypeDef hdma_dac1;
+
+TIM_HandleTypeDef htim2;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
@@ -59,7 +71,6 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_DAC_Init(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -121,6 +132,7 @@ int main(void) {
     MX_ADC2_Init();
     MX_ADC3_Init();
     MX_DAC_Init();
+    MX_TIM2_Init();
     /* USER CODE BEGIN 2 */
     HAL_ADC_Start_DMA(&hadc1, &appsVal[0], 1); //start the ADC for APPS 1 (Rotational Sensor) in DMA mode
     HAL_ADC_Start_DMA(&hadc2, &appsVal[1], 1); //start the ADC for APPS 2 (Linear Sensor) in DMA mode
@@ -131,7 +143,7 @@ int main(void) {
     sprintf(msg, "System initialized.\n");
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
-    #ifdef TESTING
+#ifdef TESTING
     while (1) {
         APPSMapEncoderValueToPositionPercentage(&appsVal[0], &appsVal[1], apps_Pedal_Position);
         set_value_to_inverter(&appsVal, &bpsVal);
@@ -139,7 +151,7 @@ int main(void) {
         monitor_Signals();
         HAL_Delay(50);
     }
-    #endif
+#endif
 
     /* USER CODE END 2 */
 
@@ -226,7 +238,8 @@ void SystemClock_Config(void) {
 
     /** Initializes the CPU, AHB and APB buses clocks
     */
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                                  | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -422,6 +435,47 @@ static void MX_DAC_Init(void) {
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_TIM2_Init(void) {
+
+    /* USER CODE BEGIN TIM2_Init 0 */
+
+    /* USER CODE END TIM2_Init 0 */
+
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+    /* USER CODE BEGIN TIM2_Init 1 */
+
+    /* USER CODE END TIM2_Init 1 */
+    htim2.Instance = TIM2;
+    htim2.Init.Prescaler = 999;
+    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim2.Init.Period = 17999;
+    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
+        Error_Handler();
+    }
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM2_Init 2 */
+
+    /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -459,8 +513,12 @@ static void MX_DMA_Init(void) {
 
     /* DMA controller clock enable */
     __HAL_RCC_DMA2_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
 
     /* DMA interrupt init */
+    /* DMA1_Stream5_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
     /* DMA2_Stream0_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -549,11 +607,6 @@ void Error_Handler(void) {
     while (1) {}
     /* USER CODE END Error_Handler_Debug */
 }
-
-
-// TODO: Add interrupt here for ignition button, process input based on state
-
-
 
 #ifdef  USE_FULL_ASSERT
 /**

@@ -85,6 +85,11 @@ void monitor_Signals(void) {
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 #endif
 
+#ifdef TEMP_DEBUG
+    sprintf(msg, "Test debug mode enabled?: YES\n");
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+#endif
+
 #ifndef TESTING
     sprintf(msg, "Test mode enabled?: NO\n");
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);

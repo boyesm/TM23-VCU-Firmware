@@ -16,25 +16,28 @@ void standby_State(void) {
         last_State = STANDBY_STATE;
         disable_motor_movement();
     }
+
     //checking if brakes are pressed, start button is pressed and HV Present at the same time
-    // TODO: test HV present feature.
+#ifndef TEMP_DEBUG
+    if ((bps_Pedal_Position[0] >= 50) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin)) && (!HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin))) {
+#endif
+#ifdef TEMP_DEBUG
+    if ((bps_Pedal_Position[0] >= 50) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin))){
+#endif
+    //sound buzzer (and enable green on-board LED) for minimum of 1 second and maximum of 3 seconds using timer
+    HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+    HAL_Delay(2000); //sound buzzer for 2 seconds
+    HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
-    //if ((bps_Pedal_Position[0] >= 50) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin)) && HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin)) {
-    if ((bps_Pedal_Position[0] >= 50) && (!HAL_GPIO_ReadPin(Start_Button_GPIO_Port, Start_Button_Pin))) {
-        //sound buzzer (and enable green on-board LED) for minimum of 1 second and maximum of 3 seconds using timer
-        HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-        HAL_Delay(2000); //sound buzzer for 2 seconds
-        HAL_GPIO_WritePin(Ready_to_Drive_Sound_GPIO_Port, Ready_to_Drive_Sound_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+    sprintf(msg, "Ready to Drive Enabled...\n");
+    HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
-        sprintf(msg, "Ready to Drive Enabled...\n");
-        HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
+    // change the current state to RUNNING_STATE
+    current_State = RUNNING_STATE;
 
-        // change the current state to RUNNING_STATE
-        current_State = RUNNING_STATE;
-
-    } //end if
+} //end if
 
 } //end standby_State()
 
@@ -58,21 +61,29 @@ void running_State(void) {
         return;
     }
 
+    if (APPS_Are_Not_Connected(&appsVal[0], &appsVal[1])){
+        current_State = ERROR_STATE;
+        return;
+    }
+
 //    if (!Signal_Plausibility_Check()) {
 //        current_State = ERROR_STATE;
 //        return;
 //    }
 
-    if (!APPS_Brake_Pedal_Plausibility_Check(&apps_Pedal_Position[0], &apps_Pedal_Position[1], &bps_Pedal_Position[0])) {
+    if (!APPS_Brake_Pedal_Plausibility_Check(&apps_Pedal_Position[0], &apps_Pedal_Position[1],
+                                             &bps_Pedal_Position[0])) {
         current_State = BSPD_TRIP_STATE;
         return;
     } //end if
 
     // if estop is pressed, return to standby mode
-    if (!HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin)){
+#ifndef TEMP_DEBUG
+    if (HAL_GPIO_ReadPin(HV_Present_GPIO_Port, HV_Present_Pin)) {
         current_State = STANDBY_STATE;
         return;
     }
+#endif
 
     // send pedal percentage to DAC here and output to inverters.
     set_value_to_inverter(&appsVal, &bpsVal);
@@ -91,8 +102,6 @@ void BSPD_Trip_State(void) {
         HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), HAL_MAX_DELAY);
 
     } //end if
-
-    // Send CAN message to notify in BSPD trip state
 
     // Stay in BSPD_Trip_State until accel pedal is less than 5%. brake pedal is don't care.
     if (apps_Pedal_Position[0] < 5) {

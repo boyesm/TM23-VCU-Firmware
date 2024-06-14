@@ -20,9 +20,6 @@ void APPSMapEncoderValueToPositionPercentage(uint32_t *appsVal0, uint32_t *appsV
         apps_PP[0] = 100;
     } //end if
 
-    // reverse the signal here
-    *appsVal1 = abs(*appsVal1 - APPS_1_SIGNAL_MAX);
-
     if (*appsVal1 < (APPS_1_MIN + APPS_FLOOR_THRESHOLD)){
         apps_PP[1] = 0;
     } else {

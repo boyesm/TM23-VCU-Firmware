@@ -43,7 +43,7 @@ bool Brake_Pedal_Plausibility_Check(uint32_t *bps_Pedal_Position0) {
 // return true when the check passes
 bool APPS_Brake_Pedal_Plausibility_Check(uint32_t *apps_Pedal_Position0, uint32_t *apps_Pedal_Position1, uint32_t *bps_Pedal_Position0) {
     // TODO: Add very small timer to this? to prevent car from entering this mode on small sensor mis-reading.
-    return !((*apps_Pedal_Position0 > 25) && (*bps_Pedal_Position0 > 0));
+    return !((*apps_Pedal_Position0 > 25) && (*bps_Pedal_Position0 > BPS_PERCENT_THRESHOLD));
 }
 
 
