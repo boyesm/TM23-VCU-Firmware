@@ -82,15 +82,6 @@ uint32_t value_to_inverter = 0; // this is the value that when changed, will dir
 
 char msg[256];
 
-ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
-ADC_HandleTypeDef hadc3;
-DMA_HandleTypeDef hdma_adc1;
-DMA_HandleTypeDef hdma_adc2;
-DMA_HandleTypeDef hdma_adc3;
-DAC_HandleTypeDef hdac;
-UART_HandleTypeDef huart2;
-
 uint32_t appsVal[2] = {0}; //to store APPS ADC values
 uint32_t apps_Pedal_Position[2] = {0}; //to store APPS Pedal Position Values (in %)
 uint32_t bpsVal[2] = {0}; //to store Brake Pressure Sensor values
